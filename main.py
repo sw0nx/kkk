@@ -6,7 +6,7 @@ from discord.ext import commands
 
 # ==== 설정 ====
 TOKEN = os.getenv("BOT_TOKEN")  # Zeabur 환경변수에서 불러오기
-GUILD_ID = 1398263224062836829  # 서버 ID
+GUILD_ID = 1398256208887939214  # 서버 ID
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -101,7 +101,7 @@ async def minigame(interaction: discord.Interaction):
     last_play_time[interaction.user.id] = now  # 마지막 실행 시간 저장
     view = MinesGame(interaction.user)
     await interaction.response.send_message(
-        "💎 **3개의 보석을 가로, 세로, 대각선으로 맞추세요!**",
+        "💎 **보석 3개를 찾으시면 포인트 하나를 드립니다!**",
         view=view
     )
 
