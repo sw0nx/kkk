@@ -24,6 +24,7 @@ class MinesButton(discord.ui.Button):
         self.y = y
 
     async def callback(self, interaction: discord.Interaction):
+        # 다른 사람이 누르면 무시 + 경고만
         if interaction.user != self.view.player:
             await interaction.response.send_message("이 게임은 당신 것이 아닙니다!", ephemeral=True)
             return
@@ -35,13 +36,13 @@ class MinesButton(discord.ui.Button):
             self.style = discord.ButtonStyle.success
             self.disabled = True
             self.view.found_gems += 1
-            await interaction.response.edit_message(view=self.view)
+
+            await interaction.message.edit(view=self.view)  # 전체 공개로 갱신
 
             if self.view.found_gems == self.view.gems_to_find:
                 user_points[interaction.user.id] = user_points.get(interaction.user.id, 0) + 1
                 for item in self.view.children:
                     item.disabled = True
-                # 전체 공개로 업데이트
                 await interaction.message.edit(view=self.view)
 
                 await interaction.followup.send(
@@ -52,24 +53,20 @@ class MinesButton(discord.ui.Button):
 
         else:  # 폭탄 클릭
             self.label = "💣"
-            self.style = discord.ButtonStyle.danger  # 클릭한 폭탄 빨간색
+            self.style = discord.ButtonStyle.danger
             self.disabled = True
 
-            # 나머지 폭탄/보석 표시
             for item in self.view.children:
                 if isinstance(item, MinesButton) and not item.disabled:
                     if self.view.board[item.y][item.x] == "💣":
                         item.label = "💣"
-                        item.style = discord.ButtonStyle.secondary  # 다른 폭탄 회색
+                        item.style = discord.ButtonStyle.secondary
                     elif self.view.board[item.y][item.x] == "💎":
                         item.label = "💎"
-                        item.style = discord.ButtonStyle.secondary  # 다른 보석 회색
+                        item.style = discord.ButtonStyle.secondary
                     item.disabled = True
 
-            # 게임판은 전체 공개로 수정
-            await interaction.message.edit(view=self.view)
-
-            # 폭탄 클릭 메시지는 개인만 보기
+            await interaction.message.edit(view=self.view)  # 전체 공개로 갱신
             await interaction.response.send_message(
                 f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!",
                 ephemeral=True
@@ -84,7 +81,6 @@ class MinesGame(discord.ui.View):
         self.found_gems = 0
 
         self.board = [["💣" for _ in range(5)] for _ in range(5)]
-
         positions = random.sample([(x, y) for y in range(5) for x in range(5)], self.total_gems)
         for x, y in positions:
             self.board[y][x] = "💎"
@@ -95,7 +91,7 @@ class MinesGame(discord.ui.View):
 
 @bot.tree.command(name="미니게임", description="5x5 보석 맞추기 게임 (30분 쿨타임)", guild=discord.Object(id=GUILD_ID))
 async def minigame(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True)  # 쿨타임 안내는 개인
+    await interaction.response.defer(ephemeral=True)  # 쿨타임 안내만 개인
 
     try:
         now = time.time()
@@ -115,11 +111,10 @@ async def minigame(interaction: discord.Interaction):
         view = MinesGame(interaction.user)
 
         # 게임 시작은 전체 공개
-        await interaction.followup.send(
+        await interaction.channel.send(
             f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
             f"총 {view.total_gems}개의 보석이 숨겨져 있습니다!",
-            view=view,
-            ephemeral=False
+            view=view
         )
 
     except Exception as e:
