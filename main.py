@@ -16,6 +16,7 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 user_points = {}
 last_play_time = {}
+COOLDOWN = 1800  # 30분 쿨타임 (초 단위)
 
 class MinesButton(discord.ui.Button):
     def __init__(self, x, y):
@@ -24,7 +25,7 @@ class MinesButton(discord.ui.Button):
         self.y = y
 
     async def callback(self, interaction: discord.Interaction):
-        # 다른 사람이 누르면 무시 + 경고만
+        # 다른 사람이 눌렀을 경우 경고만
         if interaction.user != self.view.player:
             await interaction.response.send_message("이 게임은 당신 것이 아닙니다!", ephemeral=True)
             return
@@ -37,7 +38,7 @@ class MinesButton(discord.ui.Button):
             self.disabled = True
             self.view.found_gems += 1
 
-            await interaction.message.edit(view=self.view)  # 전체 공개로 갱신
+            await interaction.message.edit(view=self.view)  # 전체 공개 업데이트
 
             if self.view.found_gems == self.view.gems_to_find:
                 user_points[interaction.user.id] = user_points.get(interaction.user.id, 0) + 1
@@ -45,10 +46,9 @@ class MinesButton(discord.ui.Button):
                     item.disabled = True
                 await interaction.message.edit(view=self.view)
 
-                await interaction.followup.send(
+                await interaction.channel.send(
                     f"🎉 {interaction.user.mention} 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
-                    f"(+1점, 총 {user_points[interaction.user.id]}점)",
-                    ephemeral=True
+                    f"(+1점, 총 {user_points[interaction.user.id]}점)"
                 )
 
         else:  # 폭탄 클릭
@@ -66,15 +66,14 @@ class MinesButton(discord.ui.Button):
                         item.style = discord.ButtonStyle.secondary
                     item.disabled = True
 
-            await interaction.message.edit(view=self.view)  # 전체 공개로 갱신
-            await interaction.response.send_message(
-                f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!",
-                ephemeral=True
+            await interaction.message.edit(view=self.view)  # 전체 공개 업데이트
+            await interaction.channel.send(
+                f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!"
             )
 
 class MinesGame(discord.ui.View):
     def __init__(self, player):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)  # 무제한 유지
         self.player = player
         self.gems_to_find = 3
         self.total_gems = 7
@@ -91,44 +90,36 @@ class MinesGame(discord.ui.View):
 
 @bot.tree.command(name="미니게임", description="5x5 보석 맞추기 게임 (30분 쿨타임)", guild=discord.Object(id=GUILD_ID))
 async def minigame(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True)  # 쿨타임 안내만 개인
+    now = time.time()
+    last_time = last_play_time.get(interaction.user.id, 0)
 
-    try:
-        now = time.time()
-        last_time = last_play_time.get(interaction.user.id, 0)
-
-        if now - last_time < 1800:
-            remaining = int(1800 - (now - last_time))
-            minutes = remaining // 60
-            seconds = remaining % 60
-            await interaction.followup.send(
-                f"{minutes}분 {seconds}초 후에 다시 시도하세요.",
-                ephemeral=True
-            )
-            return
-
-        last_play_time[interaction.user.id] = now
-        view = MinesGame(interaction.user)
-
-        # 게임 시작은 전체 공개
-        await interaction.channel.send(
-            f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
-            f"총 {view.total_gems}개의 보석이 숨겨져 있습니다!",
-            view=view
-        )
-
-    except Exception as e:
-        traceback.print_exc()
-        await interaction.followup.send(
-            f"명령어 실행 중 오류 발생: {e}",
+    if now - last_time < COOLDOWN:
+        remaining = int(COOLDOWN - (now - last_time))
+        minutes = remaining // 60
+        seconds = remaining % 60
+        await interaction.response.send_message(
+            f"{minutes}분 {seconds}초 후에 다시 시도하세요.",
             ephemeral=True
         )
+        return
+
+    last_play_time[interaction.user.id] = now
+    view = MinesGame(interaction.user)
+
+    # 위에 "누가 시작했는지" 메시지 표시
+    await interaction.response.send_message(
+        f"{interaction.user.mention} 님이 미니게임을 시작했습니다!",
+    )
+    await interaction.channel.send(
+        f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
+        f"총 {view.total_gems}개의 보석이 숨겨져 있습니다!",
+        view=view
+    )
 
 @bot.tree.command(name="포인트", description="내 포인트 확인", guild=discord.Object(id=GUILD_ID))
 async def check_points(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True)
     points = user_points.get(interaction.user.id, 0)
-    await interaction.followup.send(f"💰 현재 포인트: {points}점", ephemeral=True)
+    await interaction.response.send_message(f"💰 현재 포인트: {points}점", ephemeral=True)
 
 @bot.event
 async def on_ready():
