@@ -20,7 +20,7 @@ last_play_time = {}
 class MinesButton(discord.ui.Button):
     def __init__(self, x, y):
         # 기본 라벨을 숨김 (빈 문자열)
-        super().__init__(label="▪️", style=discord.ButtonStyle.secondary, row=y)
+        super().__init__(label="⬛️", style=discord.ButtonStyle.secondary, row=y)
         self.x = x
         self.y = y
 
