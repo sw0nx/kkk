@@ -25,9 +25,12 @@ class MinesButton(discord.ui.Button):
         self.y = y
 
     async def callback(self, interaction: discord.Interaction):
+        # 먼저 defer로 상호작용 예약 → 상호작용 실패 방지
+        await interaction.response.defer()
+
         # 다른 사람이 눌렀을 경우 경고만
         if interaction.user != self.view.player:
-            await interaction.response.send_message("**이 게임은 당신 것이 아닙니다**", ephemeral=True)
+            await interaction.followup.send("**이 게임은 당신 것이 아닙니다**", ephemeral=True)
             return
 
         cell = self.view.board[self.y][self.x]
@@ -46,9 +49,10 @@ class MinesButton(discord.ui.Button):
                     item.disabled = True
                 await interaction.message.edit(view=self.view)
 
-                await interaction.channel.send(
+                await interaction.followup.send(
                     f"🎉 {interaction.user.mention} 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
-                    f"(+1점, 총 {user_points[interaction.user.id]}점)"
+                    f"(+1점, 총 {user_points[interaction.user.id]}점)",
+                    ephemeral=True
                 )
 
         else:  # 폭탄 클릭
@@ -67,8 +71,9 @@ class MinesButton(discord.ui.Button):
                     item.disabled = True
 
             await interaction.message.edit(view=self.view)  # 전체 공개 업데이트
-            await interaction.channel.send(
-                f"**{interaction.user.mention} 폭탄을 뽑아 탈락했습니다**"
+            await interaction.followup.send(
+                f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!",
+                ephemeral=True
             )
 
 class MinesGame(discord.ui.View):
@@ -108,7 +113,7 @@ async def minigame(interaction: discord.Interaction):
 
     # 위에 "누가 시작했는지" 메시지 표시
     await interaction.response.send_message(
-        f"**{interaction.user.mention} 님이 미니게임을 시작했습니다**",
+        f"**{interaction.user.mention} 님이 미니게임을 시작했습니다**"
     )
     await interaction.channel.send(
         f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
