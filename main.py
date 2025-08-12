@@ -19,8 +19,8 @@ last_play_time = {}
 
 class MinesButton(discord.ui.Button):
     def __init__(self, x, y):
-        # 기본 라벨을 숨김 (빈 문자열)
-        super().__init__(label="<:emoji_13:1404845832028557414>", style=discord.ButtonStyle.secondary, row=y)
+        # emoji 파라미터로 커스텀 이모지 지정
+        super().__init__(emoji="<:emoji_13:1404845832028557414>", style=discord.ButtonStyle.secondary, row=y)
         self.x = x
         self.y = y
 
@@ -32,7 +32,7 @@ class MinesButton(discord.ui.Button):
         cell = self.view.board[self.y][self.x]
 
         if cell == "💎":
-            self.label = "💎"
+            self.emoji = "💎"
             self.style = discord.ButtonStyle.success
             self.disabled = True
             self.view.found_gems += 1
@@ -51,7 +51,7 @@ class MinesButton(discord.ui.Button):
                 await interaction.edit_original_response(view=self.view)
 
         else:  # 폭탄
-            self.label = "💣"
+            self.emoji = "💣"
             self.style = discord.ButtonStyle.danger
             self.disabled = True
             await interaction.response.edit_message(view=self.view)
