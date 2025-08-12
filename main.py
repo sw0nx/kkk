@@ -17,6 +17,7 @@ user_points = {}
 last_play_time = {}
 COOLDOWN = 1800  # 30분 쿨타임 (초 단위)
 
+
 class MinesButton(discord.ui.Button):
     def __init__(self, x, y):
         super().__init__(label="\u200b", style=discord.ButtonStyle.secondary, row=y)
@@ -24,41 +25,45 @@ class MinesButton(discord.ui.Button):
         self.y = y
 
     async def callback(self, interaction: discord.Interaction):
-        # 본인만 누를 수 있음
+        # 본인만 클릭 가능
         if interaction.user != self.view.player:
             await interaction.response.send_message("**이 게임은 당신 것이 아닙니다**", ephemeral=True)
             return
 
         cell = self.view.board[self.y][self.x]
 
-        if cell == "💎":  # 보석 클릭
+        # 보석 클릭
+        if cell == "💎":
             self.label = "💎"
             self.style = discord.ButtonStyle.success
             self.disabled = True
             self.view.found_gems += 1
 
-            await interaction.message.edit(view=self.view)  # 게임판 업데이트 (공개)
-
+            # 모든 보석 찾음 → 게임 종료
             if self.view.found_gems == self.view.gems_to_find:
                 user_points[interaction.user.id] = user_points.get(interaction.user.id, 0) + 1
                 for item in self.view.children:
                     item.disabled = True
-                await interaction.message.edit(view=self.view)
+                await interaction.response.send_message(
+                    f"🎉 축하합니다! 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
+                    f"(+1점, 총 {user_points[interaction.user.id]}점)",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    f"💎 보석 발견! ({self.view.found_gems}/{self.view.gems_to_find})",
+                    ephemeral=True
+                )
 
-                # 개인 메시지로만 승리 알림
-                try:
-                    await interaction.user.send(
-                        f"🎉 축하합니다! 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
-                        f"(+1점, 총 {user_points[interaction.user.id]}점)"
-                    )
-                except:
-                    pass
+            await interaction.message.edit(view=self.view)
 
-        else:  # 폭탄 클릭
+        # 폭탄 클릭
+        else:
             self.label = "💣"
             self.style = discord.ButtonStyle.danger
             self.disabled = True
 
+            # 전체 보드 공개
             for item in self.view.children:
                 if isinstance(item, MinesButton) and not item.disabled:
                     if self.view.board[item.y][item.x] == "💣":
@@ -69,13 +74,12 @@ class MinesButton(discord.ui.Button):
                         item.style = discord.ButtonStyle.secondary
                     item.disabled = True
 
-            await interaction.message.edit(view=self.view)  # 게임판 업데이트 (공개)
+            await interaction.response.send_message(
+                f"💥 아쉽습니다! 폭탄을 뽑아 탈락했습니다.",
+                ephemeral=True
+            )
+            await interaction.message.edit(view=self.view)
 
-            # 개인 메시지로만 폭탄 알림
-            try:
-                await interaction.user.send(f"💥 아쉽습니다! 폭탄을 뽑아 탈락했습니다.")
-            except:
-                pass
 
 class MinesGame(discord.ui.View):
     def __init__(self, player):
@@ -85,14 +89,17 @@ class MinesGame(discord.ui.View):
         self.total_gems = 7
         self.found_gems = 0
 
+        # 기본 보드 생성
         self.board = [["💣" for _ in range(5)] for _ in range(5)]
         positions = random.sample([(x, y) for y in range(5) for x in range(5)], self.total_gems)
         for x, y in positions:
             self.board[y][x] = "💎"
 
+        # 버튼 생성
         for y in range(5):
             for x in range(5):
                 self.add_item(MinesButton(x, y))
+
 
 @bot.tree.command(name="미니게임", description="5x5 보석 맞추기 게임 (30분 쿨타임)", guild=discord.Object(id=GUILD_ID))
 async def minigame(interaction: discord.Interaction):
@@ -121,14 +128,17 @@ async def minigame(interaction: discord.Interaction):
         view=view
     )
 
+
 @bot.tree.command(name="포인트", description="내 포인트 확인", guild=discord.Object(id=GUILD_ID))
 async def check_points(interaction: discord.Interaction):
     points = user_points.get(interaction.user.id, 0)
     await interaction.response.send_message(f"**💰 현재 포인트: {points}점**", ephemeral=True)
 
+
 @bot.event
 async def on_ready():
     await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
     print(f"✅ 로그인됨: {bot.user} | 명령어 동기화 완료!")
+
 
 bot.run(TOKEN)
