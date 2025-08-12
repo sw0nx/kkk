@@ -20,7 +20,7 @@ last_play_time = {}
 class MinesButton(discord.ui.Button):
     def __init__(self, x, y):
         # emoji 파라미터로 커스텀 이모지 지정
-        super().__init__(emoji="<:emoji_13:1404845832028557414>", style=discord.ButtonStyle.secondary, row=y)
+        super().__init__(emoji="<:emoji_14:1404851826410393701>", style=discord.ButtonStyle.secondary, row=y)
         self.x = x
         self.y = y
 
