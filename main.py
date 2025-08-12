@@ -30,7 +30,7 @@ class MinesButton(discord.ui.Button):
 
         cell = self.view.board[self.y][self.x]
 
-        if cell == "💎":
+        if cell == "💎":  # 보석 클릭
             self.label = "💎"
             self.style = discord.ButtonStyle.success
             self.disabled = True
@@ -39,36 +39,39 @@ class MinesButton(discord.ui.Button):
 
             if self.view.found_gems == self.view.gems_to_find:
                 user_points[interaction.user.id] = user_points.get(interaction.user.id, 0) + 1
+                for item in self.view.children:
+                    item.disabled = True
+                await interaction.edit_original_response(view=self.view)
+
                 await interaction.followup.send(
                     f"🎉 {interaction.user.mention} 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
                     f"(+1점, 총 {user_points[interaction.user.id]}점)",
                     ephemeral=True
                 )
-                for item in self.view.children:
-                    item.disabled = True
-                await interaction.edit_original_response(view=self.view)
 
         else:  # 폭탄 클릭
             self.label = "💣"
-            self.style = discord.ButtonStyle.danger
+            self.style = discord.ButtonStyle.danger  # 클릭한 폭탄 빨간색
             self.disabled = True
 
+            # 나머지 폭탄/보석 표시
             for item in self.view.children:
-                if isinstance(item, MinesButton):
+                if isinstance(item, MinesButton) and not item.disabled:
                     if self.view.board[item.y][item.x] == "💣":
                         item.label = "💣"
-                        item.style = discord.ButtonStyle.danger
+                        item.style = discord.ButtonStyle.secondary  # 다른 폭탄 회색
                     elif self.view.board[item.y][item.x] == "💎":
                         item.label = "💎"
-                        item.style = discord.ButtonStyle.success
+                        item.style = discord.ButtonStyle.secondary  # 다른 보석도 회색
                     item.disabled = True
 
             await interaction.response.edit_message(view=self.view)
+            await interaction.edit_original_response(view=self.view)
+
             await interaction.followup.send(
                 f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!",
                 ephemeral=True
             )
-            await interaction.edit_original_response(view=self.view)
 
 class MinesGame(discord.ui.View):
     def __init__(self, player):
@@ -90,8 +93,7 @@ class MinesGame(discord.ui.View):
 
 @bot.tree.command(name="미니게임", description="5x5 보석 맞추기 게임 (30분 쿨타임)", guild=discord.Object(id=GUILD_ID))
 async def minigame(interaction: discord.Interaction):
-    # 첫 응답부터 비공개
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer(ephemeral=True)  # 쿨타임 안내는 개인
 
     try:
         now = time.time()
@@ -110,7 +112,7 @@ async def minigame(interaction: discord.Interaction):
         last_play_time[interaction.user.id] = now
         view = MinesGame(interaction.user)
 
-        # 게임 시작 메시지만 공개
+        # 게임 시작은 전체 공개
         await interaction.followup.send(
             f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
             f"총 {view.total_gems}개의 보석이 숨겨져 있습니다!",
