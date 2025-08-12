@@ -27,7 +27,7 @@ class MinesButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         # 다른 사람이 눌렀을 경우 경고만
         if interaction.user != self.view.player:
-            await interaction.response.send_message("이 게임은 당신 것이 아닙니다!", ephemeral=True)
+            await interaction.response.send_message("**이 게임은 당신 것이 아닙니다**", ephemeral=True)
             return
 
         cell = self.view.board[self.y][self.x]
@@ -68,7 +68,7 @@ class MinesButton(discord.ui.Button):
 
             await interaction.message.edit(view=self.view)  # 전체 공개 업데이트
             await interaction.channel.send(
-                f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!"
+                f"**{interaction.user.mention} 폭탄을 뽑아 탈락했습니다**"
             )
 
 class MinesGame(discord.ui.View):
@@ -98,7 +98,7 @@ async def minigame(interaction: discord.Interaction):
         minutes = remaining // 60
         seconds = remaining % 60
         await interaction.response.send_message(
-            f"{minutes}분 {seconds}초 후에 다시 시도하세요.",
+            f"**{minutes}분 {seconds}초 후에 다시 시도하세요**",
             ephemeral=True
         )
         return
@@ -108,18 +108,18 @@ async def minigame(interaction: discord.Interaction):
 
     # 위에 "누가 시작했는지" 메시지 표시
     await interaction.response.send_message(
-        f"{interaction.user.mention} 님이 미니게임을 시작했습니다!",
+        f"**{interaction.user.mention} 님이 미니게임을 시작했습니다**",
     )
     await interaction.channel.send(
         f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
-        f"총 {view.total_gems}개의 보석이 숨겨져 있습니다!",
+        f"**총 {view.total_gems}개의 보석이 숨겨져 있습니다**",
         view=view
     )
 
 @bot.tree.command(name="포인트", description="내 포인트 확인", guild=discord.Object(id=GUILD_ID))
 async def check_points(interaction: discord.Interaction):
     points = user_points.get(interaction.user.id, 0)
-    await interaction.response.send_message(f"💰 현재 포인트: {points}점", ephemeral=True)
+    await interaction.response.send_message(f"**💰 현재 포인트: {points}점**", ephemeral=True)
 
 @bot.event
 async def on_ready():
