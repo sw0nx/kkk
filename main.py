@@ -41,7 +41,8 @@ class MinesButton(discord.ui.Button):
                 user_points[interaction.user.id] = user_points.get(interaction.user.id, 0) + 1
                 for item in self.view.children:
                     item.disabled = True
-                await interaction.edit_original_response(view=self.view)
+                # 전체 공개로 업데이트
+                await interaction.message.edit(view=self.view)
 
                 await interaction.followup.send(
                     f"🎉 {interaction.user.mention} 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
@@ -62,13 +63,14 @@ class MinesButton(discord.ui.Button):
                         item.style = discord.ButtonStyle.secondary  # 다른 폭탄 회색
                     elif self.view.board[item.y][item.x] == "💎":
                         item.label = "💎"
-                        item.style = discord.ButtonStyle.secondary  # 다른 보석도 회색
+                        item.style = discord.ButtonStyle.secondary  # 다른 보석 회색
                     item.disabled = True
 
-            await interaction.response.edit_message(view=self.view)
-            await interaction.edit_original_response(view=self.view)
+            # 게임판은 전체 공개로 수정
+            await interaction.message.edit(view=self.view)
 
-            await interaction.followup.send(
+            # 폭탄 클릭 메시지는 개인만 보기
+            await interaction.response.send_message(
                 f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!",
                 ephemeral=True
             )
