@@ -19,8 +19,7 @@ last_play_time = {}
 
 class MinesButton(discord.ui.Button):
     def __init__(self, x, y):
-        # emoji 파라미터로 커스텀 이모지 지정
-        super().__init__(emoji="<:emoji_14:1404851826410393701>", style=discord.ButtonStyle.secondary, row=y)
+        super().__init__(label="\u200b", style=discord.ButtonStyle.secondary, row=y)
         self.x = x
         self.y = y
 
@@ -32,11 +31,10 @@ class MinesButton(discord.ui.Button):
         cell = self.view.board[self.y][self.x]
 
         if cell == "💎":
-            self.emoji = "💎"
+            self.label = "💎"
             self.style = discord.ButtonStyle.success
             self.disabled = True
             self.view.found_gems += 1
-
             await interaction.response.edit_message(view=self.view)
 
             if self.view.found_gems == self.view.gems_to_find:
@@ -50,32 +48,38 @@ class MinesButton(discord.ui.Button):
                     item.disabled = True
                 await interaction.edit_original_response(view=self.view)
 
-        else:  # 폭탄
-            self.emoji = "💣"
+        else:  # 폭탄 클릭
+            self.label = "💣"
             self.style = discord.ButtonStyle.danger
             self.disabled = True
-            await interaction.response.edit_message(view=self.view)
 
+            for item in self.view.children:
+                if isinstance(item, MinesButton):
+                    if self.view.board[item.y][item.x] == "💣":
+                        item.label = "💣"
+                        item.style = discord.ButtonStyle.danger
+                    elif self.view.board[item.y][item.x] == "💎":
+                        item.label = "💎"
+                        item.style = discord.ButtonStyle.success
+                    item.disabled = True
+
+            await interaction.response.edit_message(view=self.view)
             await interaction.followup.send(
                 f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!",
                 ephemeral=True
             )
-            for item in self.view.children:
-                item.disabled = True
             await interaction.edit_original_response(view=self.view)
 
 class MinesGame(discord.ui.View):
     def __init__(self, player):
         super().__init__(timeout=60)
         self.player = player
-        self.gems_to_find = 3   # 승리 조건 (3개 찾으면 끝)
-        self.total_gems = 7     # 보드에 배치할 보석 총 개수
+        self.gems_to_find = 3
+        self.total_gems = 7
         self.found_gems = 0
 
-        # 5x5 보드 모두 폭탄으로 초기화
         self.board = [["💣" for _ in range(5)] for _ in range(5)]
 
-        # 보석 7개를 랜덤 위치에 배치
         positions = random.sample([(x, y) for y in range(5) for x in range(5)], self.total_gems)
         for x, y in positions:
             self.board[y][x] = "💎"
@@ -86,7 +90,8 @@ class MinesGame(discord.ui.View):
 
 @bot.tree.command(name="미니게임", description="5x5 보석 맞추기 게임 (30분 쿨타임)", guild=discord.Object(id=GUILD_ID))
 async def minigame(interaction: discord.Interaction):
-    await interaction.response.defer()
+    # 첫 응답부터 비공개
+    await interaction.response.defer(ephemeral=True)
 
     try:
         now = time.time()
@@ -103,27 +108,20 @@ async def minigame(interaction: discord.Interaction):
             return
 
         last_play_time[interaction.user.id] = now
+        view = MinesGame(interaction.user)
 
-        try:
-            view = MinesGame(interaction.user)
-        except Exception as e:
-            traceback.print_exc()
-            await interaction.followup.send(
-                f"게임 생성 중 오류가 발생했습니다: `{e}`",
-                ephemeral=True
-            )
-            return
-
+        # 게임 시작 메시지만 공개
         await interaction.followup.send(
             f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
             f"총 {view.total_gems}개의 보석이 숨겨져 있습니다!",
-            view=view
+            view=view,
+            ephemeral=False
         )
 
     except Exception as e:
         traceback.print_exc()
         await interaction.followup.send(
-            f"명령어 실행 중 오류 발생: `{e}`",
+            f"명령어 실행 중 오류 발생: {e}",
             ephemeral=True
         )
 
