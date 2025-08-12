@@ -19,8 +19,8 @@ last_play_time = {}
 
 class MinesButton(discord.ui.Button):
     def __init__(self, x, y):
-        # 초기 라벨은 빈 칸(스페이스)로 설정
-        super().__init__(label="⬜️", style=discord.ButtonStyle.secondary, row=y)
+        # 기본 라벨을 숨김 (빈 문자열)
+        super().__init__(label="", style=discord.ButtonStyle.secondary, row=y)
         self.x = x
         self.y = y
 
@@ -39,10 +39,11 @@ class MinesButton(discord.ui.Button):
 
             await interaction.response.edit_message(view=self.view)
 
-            if self.view.found_gems == self.view.total_gems:
+            if self.view.found_gems == self.view.gems_to_find:
                 user_points[interaction.user.id] = user_points.get(interaction.user.id, 0) + 1
                 await interaction.followup.send(
-                    f"🎉 {interaction.user.mention} 보석 3개 모두 찾았습니다! (+1점, 총 {user_points[interaction.user.id]}점)",
+                    f"🎉 {interaction.user.mention} 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
+                    f"(+1점, 총 {user_points[interaction.user.id]}점)",
                     ephemeral=True
                 )
                 for item in self.view.children:
@@ -67,16 +68,17 @@ class MinesGame(discord.ui.View):
     def __init__(self, player):
         super().__init__(timeout=60)
         self.player = player
+        self.gems_to_find = 3   # 승리 조건 (3개 찾으면 끝)
+        self.total_gems = 7     # 보드에 배치할 보석 총 개수
+        self.found_gems = 0
+
         # 5x5 보드 모두 폭탄으로 초기화
         self.board = [["💣" for _ in range(5)] for _ in range(5)]
 
-        # 보석 3개를 랜덤 위치에 배치
-        positions = random.sample([(x, y) for y in range(5) for x in range(5)], 3)
+        # 보석 7개를 랜덤 위치에 배치
+        positions = random.sample([(x, y) for y in range(5) for x in range(5)], self.total_gems)
         for x, y in positions:
             self.board[y][x] = "💎"
-
-        self.total_gems = 3  # 보석 개수 고정 3개
-        self.found_gems = 0
 
         for y in range(5):
             for x in range(5):
@@ -113,7 +115,8 @@ async def minigame(interaction: discord.Interaction):
             return
 
         await interaction.followup.send(
-            "**3개의 보석을 모두 찾으시면 포인트 하나 드립니다\n모은 포인트는 환전 가능합니다**",
+            f"**보석 {view.gems_to_find}개를 찾으면 포인트 하나 드립니다**\n"
+            f"총 {view.total_gems}개의 보석이 숨겨져 있습니다!",
             view=view
         )
 
