@@ -2,7 +2,6 @@ import os
 import discord
 import random
 import time
-import traceback
 from discord.ext import commands
 
 TOKEN = os.getenv("BOT_TOKEN")
@@ -25,12 +24,9 @@ class MinesButton(discord.ui.Button):
         self.y = y
 
     async def callback(self, interaction: discord.Interaction):
-        # 먼저 defer로 상호작용 예약 → 상호작용 실패 방지
-        await interaction.response.defer()
-
-        # 다른 사람이 눌렀을 경우 경고만
+        # 본인만 누를 수 있음
         if interaction.user != self.view.player:
-            await interaction.followup.send("**이 게임은 당신 것이 아닙니다**", ephemeral=True)
+            await interaction.response.send_message("**이 게임은 당신 것이 아닙니다**", ephemeral=True)
             return
 
         cell = self.view.board[self.y][self.x]
@@ -41,7 +37,7 @@ class MinesButton(discord.ui.Button):
             self.disabled = True
             self.view.found_gems += 1
 
-            await interaction.message.edit(view=self.view)  # 전체 공개 업데이트
+            await interaction.message.edit(view=self.view)  # 게임판 업데이트 (공개)
 
             if self.view.found_gems == self.view.gems_to_find:
                 user_points[interaction.user.id] = user_points.get(interaction.user.id, 0) + 1
@@ -49,11 +45,14 @@ class MinesButton(discord.ui.Button):
                     item.disabled = True
                 await interaction.message.edit(view=self.view)
 
-                await interaction.followup.send(
-                    f"🎉 {interaction.user.mention} 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
-                    f"(+1점, 총 {user_points[interaction.user.id]}점)",
-                    ephemeral=True
-                )
+                # 개인 메시지로만 승리 알림
+                try:
+                    await interaction.user.send(
+                        f"🎉 축하합니다! 보석 {self.view.gems_to_find}개 모두 찾았습니다! "
+                        f"(+1점, 총 {user_points[interaction.user.id]}점)"
+                    )
+                except:
+                    pass
 
         else:  # 폭탄 클릭
             self.label = "💣"
@@ -70,11 +69,13 @@ class MinesButton(discord.ui.Button):
                         item.style = discord.ButtonStyle.secondary
                     item.disabled = True
 
-            await interaction.message.edit(view=self.view)  # 전체 공개 업데이트
-            await interaction.followup.send(
-                f"💥 {interaction.user.mention} 폭탄을 뽑아 탈락했습니다!",
-                ephemeral=True
-            )
+            await interaction.message.edit(view=self.view)  # 게임판 업데이트 (공개)
+
+            # 개인 메시지로만 폭탄 알림
+            try:
+                await interaction.user.send(f"💥 아쉽습니다! 폭탄을 뽑아 탈락했습니다.")
+            except:
+                pass
 
 class MinesGame(discord.ui.View):
     def __init__(self, player):
@@ -111,7 +112,6 @@ async def minigame(interaction: discord.Interaction):
     last_play_time[interaction.user.id] = now
     view = MinesGame(interaction.user)
 
-    # 위에 "누가 시작했는지" 메시지 표시
     await interaction.response.send_message(
         f"**{interaction.user.mention} 님이 미니게임을 시작했습니다**"
     )
